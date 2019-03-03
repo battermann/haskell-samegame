@@ -2,12 +2,12 @@ name:                samegame
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/samegame#readme
+homepage:            https://github.com/battermann/haskell-samegame
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2019 Author name here
+author:              Leif Battermann
+maintainer:          leifbattermann@gmail.com
+copyright:           2019 Leif Battermann
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
