@@ -8,7 +8,7 @@ import           Data.Maybe
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           SameGameModels
-import           Util.List
+import           List.Extra
 
 bonus :: Score
 bonus = Score 1000

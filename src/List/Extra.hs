@@ -1,4 +1,4 @@
-module Util.List
+module List.Extra
   ( zipWithIndex
   , indexedMap
   , elemAt
