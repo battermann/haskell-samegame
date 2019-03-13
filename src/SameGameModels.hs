@@ -1,6 +1,7 @@
 module SameGameModels where
 
 import           Data.List
+import           Data.Set                       ( Set )
 
 data Position = Position
   { columnIndex :: Int
@@ -20,9 +21,9 @@ type Board = [Column]
 
 data Cell = Cell Position CellState deriving (Eq, Ord)
 
-data Group = Group Color [Position]
+data Group = Group Color (Set Position) deriving (Eq, Ord)
 
-newtype Score = Score Int
+newtype Score = Score Int deriving (Eq, Ord)
 
 add :: Score -> Score -> Score
 add (Score sc1) (Score sc2) = Score $ sc1 + sc2
@@ -56,4 +57,12 @@ instance Show CellState where
   show Empty                  = "-"
 
 instance Show Game where
-  show game = intercalate "\n" (unwords . map show <$> transpose (reverse <$> getBoard game)) ++ "\nScore: " ++ show (getScore game)
+  show game =
+    intercalate "\n"
+                (unwords . map show <$> transpose (reverse <$> getBoard game))
+      ++ "\nScore: "
+      ++ show (getScore game)
+
+instance Show Position where
+  show position =
+    "(" ++ show (columnIndex position) ++ "," ++ show (rowIndex position) ++ ")"

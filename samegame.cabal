@@ -22,3 +22,8 @@ executable samegame
                        lens,
                        containers,
                        random
+  other-modules:       Games,
+                       List.Extra,
+                       MonteCarlo,
+                       SameGame,
+                       SameGameModels

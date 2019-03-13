@@ -1,4 +1,7 @@
-module Playing (playSameGame) where
+module Playing
+  ( playSameGame
+  )
+where
 
 import           SameGameModels
 import           SameGame
@@ -31,5 +34,6 @@ playSameGame game = do
   case parseInput input of
     Just (Play position) -> playSameGame (play position game)
     Just Quit            -> return ()
-    Nothing              -> putStrLn "Invalid input" *> putStrLn helpMsg *> playSameGame game
-  
+    Nothing ->
+      putStrLn "Invalid input" *> putStrLn helpMsg *> playSameGame game
+

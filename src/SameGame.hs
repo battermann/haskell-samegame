@@ -1,6 +1,7 @@
 module SameGame
   ( play
   , evaluateGameState
+  , findGroup
   )
 where
 
@@ -103,7 +104,7 @@ findGroup board position = case cellStateAt board position of
     let touchingPositionsOfSameColor =
             find board (Set.singleton position) Set.empty
     in  if length touchingPositionsOfSameColor > 1
-          then Just $ Group color (Set.toList touchingPositionsOfSameColor)
+          then Just $ Group color touchingPositionsOfSameColor
           else Nothing
 
   Empty -> Nothing

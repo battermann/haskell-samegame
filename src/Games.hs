@@ -1,11 +1,14 @@
-module Games (defaultGame) where
+module Games
+  ( defaultGame
+  )
+where
 
 import           SameGameModels
 import           SameGame
 
 defaultGame :: Game
 defaultGame = evaluateGameState columns (Score 0)
-  where
+ where
   columns = map
     (map (Filled . Color))
     [ [1, 1, 3, 2, 0, 0, 1, 1, 2, 0, 1, 2, 0, 3, 3]
