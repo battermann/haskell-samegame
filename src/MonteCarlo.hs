@@ -8,6 +8,9 @@ import           Data.Foldable
 import           Data.List
 import           System.Random
 import           Control.Monad
+import           Data.Map.Strict                ( Map )
+import qualified Data.Map.Strict               as Map
+import           Data.Ord
 
 data GameState = GameState
   { playedMoves :: [Position]
@@ -42,10 +45,36 @@ simulation gameState = case legalMoves (position gameState) of
     n <- randomRIO (0, length moves - 1 :: Int)
     simulation (applyMove (moves !! n) gameState)
 
-compScore :: (a, Score) -> (a, Score) -> Ordering
-compScore (_, Score sc1) (_, Score sc2) | sc1 > sc2 = GT
-                                        | sc1 < sc2 = LT
-                                        | otherwise = EQ
+cellColor :: CellState -> Map Color Int
+cellColor (Filled color) = Map.singleton color 1
+cellColor Empty          = Map.empty
+
+predominantColor :: GameState -> Maybe Color
+predominantColor gameState =
+  let colorOccurences = Map.toList
+        $ (foldMap (foldMap cellColor) . getBoard . position) gameState
+  in  case colorOccurences of
+        []     -> Nothing
+        colors -> Just $ fst (maximumBy (comparing snd) colors)
+
+colorAt :: Game -> Position -> Maybe Color
+colorAt game pos = case cellStateAt (getBoard game) pos of
+  Filled color -> Just color
+  Empty        -> Nothing
+
+tabuColorSimulation :: GameState -> IO Result
+tabuColorSimulation gameState =
+  let game      = position gameState
+      moves     = legalMoves game
+      tabuColor = predominantColor gameState
+  in  case partition (\p -> tabuColor == colorAt game p) moves of
+        ([], []) -> return $ Result (playedMoves gameState) (score gameState)
+        (tabuMoves, []) -> do
+          n <- randomRIO (0, length tabuMoves - 1 :: Int)
+          tabuColorSimulation (applyMove (tabuMoves !! n) gameState)
+        (_, nonTabuMoves) -> do
+          n <- randomRIO (0, length nonTabuMoves - 1 :: Int)
+          tabuColorSimulation (applyMove (nonTabuMoves !! n) gameState)
 
 nestedSearch :: Int -> Int -> GameState -> IO GameState
 nestedSearch numLevels level gameState =
@@ -56,12 +85,12 @@ nestedSearch numLevels level gameState =
            let simulationResults = traverse
                  (\move -> if level == 1
                    then (\(Result _ sc) -> (move, sc))
-                     <$> simulation (applyMove move gameState)
+                     <$> tabuColorSimulation (applyMove move gameState)
                    else (\gs -> (move, score gs)) <$> nestedSearch
                      numLevels
                      (level - 1)
                      (applyMove move gameState)
                  )
                  moves
-               best = fst . maximumBy compScore <$> simulationResults
+               best = fst . maximumBy (comparing snd) <$> simulationResults
            in  best >>= nestedSearch numLevels level . (`applyMove` gameState)

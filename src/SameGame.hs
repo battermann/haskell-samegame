@@ -2,6 +2,7 @@ module SameGame
   ( play
   , evaluateGameState
   , findGroup
+  , cellStateAt
   )
 where
 
@@ -69,7 +70,6 @@ totalNumberOfCells =
   let countOne (Filled _) = 1
       countOne Empty      = 0
   in  sum . map (sum . map countOne)
-
 
 columnIsEmpty :: Column -> Bool
 columnIsEmpty []          = True
