@@ -39,4 +39,4 @@ playSameGame game = do
       putStrLn "Invalid input" *> putStrLn helpMsg *> playSameGame game
 
 main :: IO ()
-main = playSameGame (mkGame 5)
+main = playSameGame (mkGame 15)
