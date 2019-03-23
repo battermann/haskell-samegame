@@ -1,28 +1,19 @@
+{-# LANGUAGE TupleSections #-}
 module MonteCarlo where
 
-import           SameGameModels
-import           SameGame
-import           List.Extra
-import           Data.Maybe
+import           Control.Monad
 import           Data.Foldable
 import           Data.List
-import           System.Random
-import           Control.Monad
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as Map
+import qualified Data.Map                      as Map
+import           Data.Map.Append
+import           Data.Maybe
 import           Data.Ord
-
-data GameState = GameState
-  { playedMoves :: [Position]
-  , score :: Score
-  , position :: Game
-  }
-
-instance Show GameState where
-  show gameState = show (position gameState) ++ "\n" ++ show
-    ((reverse . playedMoves) gameState)
-
-data Result = Result [Position] Score
+import           List.Extra
+import           SameGame
+import           SameGameModels
+import           System.Random
+import           SearchState
+import           Control.Concurrent.ParallelIO.Local
 
 legalMoves :: Game -> [Position]
 legalMoves (Finished _ _) = []
@@ -33,64 +24,73 @@ legalMoves (InProgress board _) =
       groups = nub $ mapMaybe (findGroup board) positions
   in  mapMaybe (\(Group _ ps) -> find (const True) ps) groups
 
-applyMove :: Position -> GameState -> GameState
-applyMove p gs =
-  let game' = play p (position gs)
-  in  GameState (p : playedMoves gs) (getScore game') game'
+newtype Add = Add { unwrap :: Int }
 
-simulation :: GameState -> IO Result
-simulation gameState = case legalMoves (position gameState) of
-  []    -> return $ Result (playedMoves gameState) (score gameState)
-  moves -> do
-    n <- randomRIO (0, length moves - 1 :: Int)
-    simulation (applyMove (moves !! n) gameState)
+instance Semigroup Add where
+  i1 <> i2 = Add $ unwrap i1 + unwrap i2
 
-cellColor :: CellState -> Map Color Int
-cellColor (Filled color) = Map.singleton color 1
-cellColor Empty          = Map.empty
+cellColor :: CellState -> AppendMap Color Add
+cellColor (Filled color) = AppendMap $ Map.singleton color (Add 1)
+cellColor Empty          = AppendMap $ Map.empty
 
-predominantColor :: GameState -> Maybe Color
-predominantColor gameState =
-  let colorOccurences = Map.toList
-        $ (foldMap (foldMap cellColor) . getBoard . position) gameState
+predominantColor :: Game -> Maybe Color
+predominantColor g =
+  let colorOccurences =
+          Map.toList $ unAppendMap $ (foldMap (foldMap cellColor) . getBoard) g
   in  case colorOccurences of
         []     -> Nothing
-        colors -> Just $ fst (maximumBy (comparing snd) colors)
+        colors -> Just $ fst (maximumBy (comparing (unwrap . snd)) colors)
 
 colorAt :: Game -> Position -> Maybe Color
-colorAt game pos = case cellStateAt (getBoard game) pos of
+colorAt g pos = case cellStateAt (getBoard g) pos of
   Filled color -> Just color
   Empty        -> Nothing
 
-tabuColorSimulation :: GameState -> IO Result
-tabuColorSimulation gameState =
-  let game      = position gameState
-      moves     = legalMoves game
-      tabuColor = predominantColor gameState
-  in  case partition (\p -> tabuColor == colorAt game p) moves of
-        ([], []) -> return $ Result (playedMoves gameState) (score gameState)
+tabuColorSimulationIO :: SearchState -> IO Result
+tabuColorSimulationIO gs =
+  let g         = game gs
+      lMoves    = legalMoves g
+      tabuColor = predominantColor g
+  in  case partition (\p -> tabuColor == colorAt g p) lMoves of
+        ([]       , []) -> return $ Result (moves gs) (getScore g)
         (tabuMoves, []) -> do
           n <- randomRIO (0, length tabuMoves - 1 :: Int)
-          tabuColorSimulation (applyMove (tabuMoves !! n) gameState)
+          tabuColorSimulationIO (applyMove (tabuMoves !! n) gs)
         (_, nonTabuMoves) -> do
           n <- randomRIO (0, length nonTabuMoves - 1 :: Int)
-          tabuColorSimulation (applyMove (nonTabuMoves !! n) gameState)
+          tabuColorSimulationIO (applyMove (nonTabuMoves !! n) gs)
 
-nestedSearch :: Int -> Int -> GameState -> IO GameState
-nestedSearch numLevels level gameState =
-  when (numLevels == level) (print gameState)
-    *> case legalMoves (position gameState) of
-         [] -> return gameState
-         moves ->
-           let simulationResults = traverse
-                 (\move -> if level == 1
-                   then (\(Result _ sc) -> (move, sc))
-                     <$> tabuColorSimulation (applyMove move gameState)
-                   else (\gs -> (move, score gs)) <$> nestedSearch
-                     numLevels
-                     (level - 1)
-                     (applyMove move gameState)
-                 )
-                 moves
-               best = fst . maximumBy (comparing snd) <$> simulationResults
-           in  best >>= nestedSearch numLevels level . (`applyMove` gameState)
+runInParallel :: Int -> Pool -> [IO a] -> IO [a]
+runInParallel parallelism pool ios =
+  fmap mconcat $ sequence $ parallel pool <$> sublists parallelism ios
+
+searchIO :: Int -> Pool -> Int -> Int -> SearchState -> IO SearchState
+searchIO parallelism pool numLevels level searchState =
+  let lMoves    = legalMoves (game searchState)
+      resultsIO = if level <= 1
+        then
+          (\m -> (, m) <$> tabuColorSimulationIO (applyMove m searchState))
+            <$> lMoves
+        else
+          (\m -> (\st -> (Result (moves st) (stScore st), m)) <$> searchIO
+              parallelism
+              pool
+              numLevels
+              (level - 1)
+              (applyMove m searchState)
+            )
+            <$> lMoves
+  in  do
+        when (numLevels == level) $ print searchState
+        results <- if numLevels == level
+          then parallel pool resultsIO
+          else sequence resultsIO
+        case results of
+          [] -> return searchState
+          xs -> do
+            let (result, m) = maximumBy (comparing (score . fst)) xs
+            searchIO parallelism pool numLevels level
+              $ update m result searchState
+
+mcts :: Int -> Pool -> Int -> SearchState -> IO SearchState
+mcts parallelism pool levels = searchIO parallelism pool levels levels

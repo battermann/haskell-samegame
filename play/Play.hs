@@ -1,5 +1,5 @@
-module Playing
-  ( playSameGame
+module Main
+  ( main
   )
 where
 
@@ -7,6 +7,7 @@ import           SameGameModels
 import           SameGame
 import           Data.Char
 import           Text.Read
+import Games
 
 data Command = Quit | Play Position
 
@@ -37,3 +38,5 @@ playSameGame game = do
     Nothing ->
       putStrLn "Invalid input" *> putStrLn helpMsg *> playSameGame game
 
+main :: IO ()
+main = playSameGame (mkGame 5)
