@@ -14,16 +14,60 @@ cabal-version:       >=1.10
 extra-source-files:  README.md
 
 executable samegame
-  ghc-options:         -Wall
+  ghc-options:         -Wall -threaded -rtsopts
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
+                       samegame,
                        lens,
                        containers,
-                       random
+                       random,
+                       appendmap,
+                       parallel-io
   other-modules:       Games,
                        List.Extra,
                        MonteCarlo,
                        SameGame,
-                       SameGameModels
+                       SameGameModels,
+                       SearchState    
+
+executable play
+  ghc-options:         -Wall
+  hs-source-dirs:      play
+  main-is:             Play.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5,
+                       samegame,
+                       lens,
+                       containers,
+                       random,
+                       appendmap                                          
+
+library
+  ghc-options:         -Wall
+  exposed-modules:     SameGame
+                       SameGameModels,
+                       MonteCarlo,
+                       Games,
+                       SearchState,
+                       List.Extra
+  build-depends:       base >= 4.7 && <5,
+                       lens,
+                       containers,
+                       random,
+                       appendmap,
+                       parallel-io
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+test-suite tests
+  ghc-options:         -Wall
+  type:                exitcode-stdio-1.0
+  main-is:             Tests.hs
+  hs-source-dirs:      tests
+  build-depends:       base,
+                       hspec,
+                       samegame,
+                       QuickCheck                     
+  default-language:    Haskell2010
