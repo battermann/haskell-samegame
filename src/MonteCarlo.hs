@@ -83,7 +83,7 @@ searchIO parallelism pool numLevels level searchState =
   in  do
         when (numLevels == level) $ print searchState
         results <- if numLevels == level
-          then parallel pool resultsIO
+          then runInParallel parallelism pool resultsIO
           else sequence resultsIO
         case results of
           [] -> return searchState
