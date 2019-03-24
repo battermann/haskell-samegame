@@ -109,7 +109,7 @@ searchIO parallelism pool globalBest numLevels level searchState =
     do
       when (numLevels == level) $ print searchState
       results <- if numLevels == level
-        then parallel pool resultsIO
+        then parallelInterleaved pool resultsIO
         else sequence resultsIO
       case results of
         [] -> return searchState
