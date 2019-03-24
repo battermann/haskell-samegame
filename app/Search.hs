@@ -6,6 +6,7 @@ import           SearchState
 import           System.Environment
 import           Control.Concurrent.ParallelIO.Local
 import           GHC.Conc                       ( getNumCapabilities )
+import           Data.IORef
 
 main :: IO ()
 main = do
@@ -17,10 +18,11 @@ main = do
   print $ "level: " <> show level
   print $ "size:  " <> show size
   let searchState = fromGame (mkGame size)
+  globalBest      <- newIORef (bestResult searchState)
   numCapabilities <- getNumCapabilities
   print $ "number of threads: " <> show numCapabilities
   _ <- withPool numCapabilities
-    $ \pool -> mcts numCapabilities pool level searchState
+    $ \pool -> mcts numCapabilities pool globalBest level searchState
   return ()
 
 
