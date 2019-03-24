@@ -23,7 +23,7 @@ data Result = Result
 
 instance Show Result where
   show result =
-    show (score result) ++ "\n     " ++ show (reverse $ path result)
+    show (score result) ++ "\nMoves " ++ show (reverse $ path result)
 
 data SearchState = SearchState
   { game       :: Game

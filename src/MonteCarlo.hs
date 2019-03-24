@@ -14,6 +14,7 @@ import           SameGameModels
 import           System.Random
 import           SearchState
 import           Control.Concurrent.ParallelIO.Local
+import           Data.IORef
 
 legalMoves :: Game -> [Position]
 legalMoves (Finished _ _) = []
@@ -64,33 +65,61 @@ runInParallel :: Int -> Pool -> [IO a] -> IO [a]
 runInParallel parallelism pool ios =
   fmap mconcat $ sequence $ parallel pool <$> sublists parallelism ios
 
-searchIO :: Int -> Pool -> Int -> Int -> SearchState -> IO SearchState
-searchIO parallelism pool numLevels level searchState =
-  let lMoves    = legalMoves (game searchState)
-      resultsIO = if level <= 1
-        then
-          (\m -> (, m) <$> tabuColorSimulationIO (applyMove m searchState))
-            <$> lMoves
-        else
-          (\m -> (\st -> (Result (moves st) (stScore st), m)) <$> searchIO
-              parallelism
-              pool
-              numLevels
-              (level - 1)
-              (applyMove m searchState)
-            )
-            <$> lMoves
-  in  do
-        when (numLevels == level) $ print searchState
-        results <- if numLevels == level
-          then parallel pool resultsIO
-          else sequence resultsIO
-        case results of
-          [] -> return searchState
-          xs -> do
-            let (result, m) = maximumBy (comparing (score . fst)) xs
-            searchIO parallelism pool numLevels level
-              $ update m result searchState
+updateGlobalBest :: IORef (Maybe Result) -> Maybe Result -> IO ()
+updateGlobalBest globalBest maybeResult = do
+  modifyResult <- atomicModifyIORef
+    globalBest
+    (\maybeGlBest -> case (maybeGlBest, maybeResult) of
+      (Nothing    , result     ) -> (result, result)
+      (Just glBest, Just result) -> if score glBest >= score result
+        then (Just glBest, Nothing)
+        else (Just result, Just result)
+      (Just glBest, Nothing) -> (Just glBest, Nothing)
+    )
+  case modifyResult of
+    Nothing     -> return ()
+    Just better -> putStrLn $ ">>> improved sequence found:\n" <> show better <> "\n"
 
-mcts :: Int -> Pool -> Int -> SearchState -> IO SearchState
-mcts parallelism pool levels = searchIO parallelism pool levels levels
+searchIO
+  :: Int
+  -> Pool
+  -> IORef (Maybe Result)
+  -> Int
+  -> Int
+  -> SearchState
+  -> IO SearchState
+searchIO parallelism pool globalBest numLevels level searchState =
+  let
+    lMoves    = legalMoves (game searchState)
+    resultsIO = if level <= 1
+      then
+        (\m -> (, m) <$> tabuColorSimulationIO (applyMove m searchState))
+          <$> lMoves
+      else
+        (\m -> (\st -> (Result (moves st) (stScore st), m)) <$> searchIO
+            parallelism
+            pool
+            globalBest
+            numLevels
+            (level - 1)
+            (applyMove m searchState)
+          )
+          <$> lMoves
+  in
+    do
+      when (numLevels == level) $ print searchState
+      results <- if numLevels == level
+        then parallel pool resultsIO
+        else sequence resultsIO
+      case results of
+        [] -> return searchState
+        xs -> do
+          let (result, m)     = maximumBy (comparing (score . fst)) xs
+          let nextSearchState = update m result searchState
+          updateGlobalBest globalBest (bestResult nextSearchState)
+          searchIO parallelism pool globalBest numLevels level nextSearchState
+
+mcts
+  :: Int -> Pool -> IORef (Maybe Result) -> Int -> SearchState -> IO SearchState
+mcts parallelism pool globalBest levels =
+  searchIO parallelism pool globalBest levels levels
