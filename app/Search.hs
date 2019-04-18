@@ -4,7 +4,6 @@ import           Games
 import           MonteCarlo
 import           SearchState
 import           System.Environment
-import           Control.Concurrent.ParallelIO.Local
 import           GHC.Conc                       ( getNumCapabilities )
 import           Data.IORef
 
@@ -21,8 +20,7 @@ main = do
   globalBest      <- newIORef (bestResult searchState)
   numCapabilities <- getNumCapabilities
   print $ "number of threads: " <> show numCapabilities
-  _ <- withPool numCapabilities
-    $ \pool -> mcts numCapabilities pool globalBest level searchState
+  _ <- mcts globalBest level searchState
   return ()
 
 

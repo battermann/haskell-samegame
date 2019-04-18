@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 extra-source-files:  README.md
 
 executable samegame
-  ghc-options:         -Wall -threaded -rtsopts
+  ghc-options:         -Wall -O2 -threaded -rtsopts
   hs-source-dirs:      app
   main-is:             Search.hs
   default-language:    Haskell2010
@@ -27,7 +27,7 @@ executable samegame
                        parallel-io
 
 executable play
-  ghc-options:         -Wall
+  ghc-options:         -Wall -O2 -threaded -rtsopts
   hs-source-dirs:      app
   main-is:             Play.hs
   default-language:    Haskell2010
@@ -52,7 +52,8 @@ library
                        random,
                        appendmap,
                        parallel-io,
-                       xorshift
+                       xorshift,
+                       scheduler
   hs-source-dirs:      src
   default-language:    Haskell2010
 

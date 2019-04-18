@@ -37,7 +37,7 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-extra-deps: [ "xorshift-2.0.1@sha256:90fb03d2388068a61ef2f22db0a5d10d43b7befa60d552e4884e4b81c4abcb52" ]
+extra-deps: [ "xorshift-2.0.1@sha256:90fb03d2388068a61ef2f22db0a5d10d43b7befa60d552e4884e4b81c4abcb52", "scheduler-1.0.0" ]
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
