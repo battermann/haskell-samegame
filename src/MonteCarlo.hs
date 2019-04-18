@@ -11,10 +11,10 @@ import           Data.Ord
 import           List.Extra
 import           SameGame
 import           SameGameModels
-import           System.Random
 import           SearchState
 import           Control.Concurrent.ParallelIO.Local
 import           Data.IORef
+import           Random.Xorshift.Int32
 
 legalMoves :: Game -> [Position]
 legalMoves (Finished _ _) = []
@@ -32,7 +32,7 @@ instance Semigroup Add where
 
 cellColor :: CellState -> AppendMap Color Add
 cellColor (Filled color) = AppendMap $ Map.singleton color (Add 1)
-cellColor Empty          = AppendMap $ Map.empty
+cellColor Empty          = AppendMap Map.empty
 
 predominantColor :: Game -> Maybe Color
 predominantColor g =
@@ -47,23 +47,25 @@ colorAt g pos = case cellStateAt (getBoard g) pos of
   Filled color -> Just color
   Empty        -> Nothing
 
+rnd :: Int -> IO Int
+rnd n = do
+  gen <- newXorshift32
+  return $ (fromIntegral $ getInt32 gen :: Int) `mod` (n + 1)
+
+
 tabuColorSimulationIO :: SearchState -> IO Result
 tabuColorSimulationIO gs =
   let g         = game gs
       lMoves    = legalMoves g
       tabuColor = predominantColor g
   in  case partition (\p -> tabuColor == colorAt g p) lMoves of
-        ([]       , []) -> return $ Result (moves gs) (getScore g)
+        ([]       , []) -> pure $ Result (moves gs) (getScore g)
         (tabuMoves, []) -> do
-          n <- randomRIO (0, length tabuMoves - 1 :: Int)
+          n <- rnd (length tabuMoves - 1)
           tabuColorSimulationIO (applyMove (tabuMoves !! n) gs)
         (_, nonTabuMoves) -> do
-          n <- randomRIO (0, length nonTabuMoves - 1 :: Int)
+          n <- rnd (length nonTabuMoves - 1)
           tabuColorSimulationIO (applyMove (nonTabuMoves !! n) gs)
-
-runInParallel :: Int -> Pool -> [IO a] -> IO [a]
-runInParallel parallelism pool ios =
-  fmap mconcat $ sequence $ parallel pool <$> sublists parallelism ios
 
 updateGlobalBest :: IORef (Maybe Result) -> Maybe Result -> IO ()
 updateGlobalBest globalBest maybeResult = do
@@ -77,8 +79,9 @@ updateGlobalBest globalBest maybeResult = do
       (Just glBest, Nothing) -> (Just glBest, Nothing)
     )
   case modifyResult of
-    Nothing     -> return ()
-    Just better -> putStrLn $ ">>> improved sequence found:\n" <> show better <> "\n"
+    Nothing -> pure ()
+    Just better ->
+      putStrLn $ ">>> improved sequence found:\n" <> show better <> "\n"
 
 searchIO
   :: Int
@@ -112,7 +115,7 @@ searchIO parallelism pool globalBest numLevels level searchState =
         then parallelInterleaved pool resultsIO
         else sequence resultsIO
       case results of
-        [] -> return searchState
+        [] -> pure searchState
         xs -> do
           let (result, m)     = maximumBy (comparing (score . fst)) xs
           let nextSearchState = update m result searchState
