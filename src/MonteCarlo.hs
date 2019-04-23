@@ -82,10 +82,12 @@ updateGlobalBest globalBest maybeResult = do
     Just better ->
       putStrLn $ ">>> improved sequence found:\n" <> show better <> "\n"
 
+trvs :: (a -> IO b) -> [a] -> IO [b]
+trvs = traverseConcurrently Par
+
 searchIO :: IORef (Maybe Result) -> Int -> Int -> SearchState -> IO SearchState
 searchIO globalBest numLevels level searchState =
-  let lMoves = legalMoves (game searchState)
-      trvs = if level == numLevels then traverseConcurrently Par else traverse
+  let lMoves    = legalMoves (game searchState)
       resultsIO = if level <= 1
         then
           (\m -> (, m) <$> tabuColorSimulationIO (applyMove m searchState))
