@@ -39,7 +39,7 @@ executable play
                        appendmap                                          
 
 library
-  ghc-options:         -Wall
+  ghc-options:         -Wall -O2
   exposed-modules:     SameGame
                        SameGameModels,
                        MonteCarlo,
